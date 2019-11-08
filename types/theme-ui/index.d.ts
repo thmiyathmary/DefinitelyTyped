@@ -2,6 +2,9 @@
 // Project: https://github.com/system-ui/theme-ui#readme
 // Definitions by: Erik Stockmeier <https://github.com/erikdstock>
 //                 Ifiok Jr. <https://github.com/ifiokjr>
+//                 Brian Andrews <https://github.com/sbardian>
+//                 Rodrigo Pombo <https://github.com/pomber>
+//                 Justin Hall <https://github.com/wKovacs64>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
 // TypeScript Version: 3.1
 
@@ -27,8 +30,6 @@ export interface ThemeProviderProps<Theme> {
 // tslint:disable-next-line: no-unnecessary-generics
 export function ThemeProvider<Theme>(props: ThemeProviderProps<Theme>): React.ReactElement;
 
-type SSColors = StyledSystemTheme['colors'];
-
 /**
  * To use Theme UI color modes, color scales should include at least a text
  * and background color. These values are used in the ColorMode component to
@@ -39,18 +40,40 @@ type SSColors = StyledSystemTheme['colors'];
  * initialColorMode key is required to enable color modes and will be used as
  * the name for the root color palette.
  */
-export interface ColorModes {
+export type ColorMode = {
+    [k: string]: CSS.ColorProperty | ObjectOrArray<CSS.ColorProperty>;
+} & {
     /**
-     * This is required for a color mode.
+     * Body background color
      */
-    text: string;
+    background: CSS.ColorProperty;
 
     /**
-     * This is required for the color mode.
+     * Body foreground color
      */
-    background: string;
-    [k: string]: Partial<Omit<StyledSystemTheme['colors'], 'modes'>>;
-}
+    text: CSS.ColorProperty;
+
+    /**
+     * Primary brand color for links, buttons, etc.
+     */
+    primary?: CSS.ColorProperty;
+
+    /**
+     * A secondary brand color for alternative styling
+     */
+    secondary?: CSS.ColorProperty;
+
+    /**
+     * A faint color for backgrounds, borders, and accents that do not require
+     * high contrast with the background color
+     */
+    muted?: CSS.ColorProperty;
+
+    /**
+     * A contrast color for emphasizing UI
+     */
+    accent?: CSS.ColorProperty;
+};
 
 export interface Theme extends StyledSystemTheme {
     /**
@@ -61,43 +84,14 @@ export interface Theme extends StyledSystemTheme {
     /**
      * Define the colors that are available through this theme
      */
-    colors?: { [k: string]: CSS.ColorProperty | ObjectOrArray<CSS.ColorProperty> } & {
-        /**
-         * Body background color
-         */
-        background: CSS.ColorProperty;
-
-        /**
-         * Body foreground color
-         */
-        text: CSS.ColorProperty;
-
-        /**
-         * Primary brand color for links, buttons, etc.
-         */
-        primary?: CSS.ColorProperty;
-
-        /**
-         * A secondary brand color for alternative styling
-         */
-        secondary?: CSS.ColorProperty;
-
-        /**
-         * A faint color for backgrounds, borders, and accents that do not require
-         * high contrast with the background color
-         */
-        muted?: CSS.ColorProperty;
-
-        /**
-         * A contrast color for emphasizing UI
-         */
-        accent?: CSS.ColorProperty;
-
+    colors?: ColorMode & {
         /**
          * Nested color modes can provide overrides when used in conjunction with
          * `Theme.initialColorMode and `useColorMode()`
          */
-        modes?: ColorModes;
+        modes?: {
+            [k: string]: ColorMode;
+        };
     };
 
     /**
@@ -108,7 +102,7 @@ export interface Theme extends StyledSystemTheme {
      * fonts, etc.
      */
     styles?: {
-        [P in StyledTags]: SystemStyleObject;
+        [P in StyledTags]?: SystemStyleObject;
     };
 }
 
@@ -124,7 +118,13 @@ export const jsx: typeof React.createElement;
  * such that properties that are part of the `Theme` will be transformed to
  * their corresponding values. Other valid CSS properties are also allowed.
  */
-export type SxStyleProp = SystemStyleObject & Record<string, SystemStyleObject | ResponsiveStyleValue<number | string>>;
+export type SxStyleProp = SystemStyleObject &
+    Record<
+        string,
+        | SystemStyleObject
+        | ResponsiveStyleValue<number | string>
+        | Record<string, SystemStyleObject | ResponsiveStyleValue<number | string>>
+    >;
 
 export interface SxProps {
     /**
@@ -141,7 +141,7 @@ export interface SxProps {
     sx?: SxStyleProp;
 }
 
-type SxComponent = React.ComponentClass<SxProps>;
+type SxComponent<T extends SxProps = IntrinsicSxElements['div']> = React.ComponentClass<T & { as?: React.ElementType }>;
 
 export const Box: SxComponent;
 export const Container: SxComponent;
@@ -151,43 +151,48 @@ export const Footer: SxComponent;
 export const Layout: SxComponent;
 export const Main: SxComponent;
 
-export type StyledTags =
-    | 'p'
-    | 'b'
-    | 'i'
-    | 'a'
-    | 'h1'
-    | 'h2'
-    | 'h3'
-    | 'h4'
-    | 'h5'
-    | 'h6'
-    | 'img'
-    | 'pre'
-    | 'code'
-    | 'ol'
-    | 'ul'
-    | 'li'
-    | 'blockquote'
-    | 'hr'
-    | 'em'
-    | 'table'
-    | 'tr'
-    | 'th'
-    | 'td'
-    | 'em'
-    | 'strong'
-    | 'delete'
-    | 'inlineCode'
-    | 'thematicBreak'
-    | 'div'
-    | 'root';
+export interface IntrinsicSxElements {
+    p: JSX.IntrinsicElements['p'] & SxProps;
+    b: JSX.IntrinsicElements['b'] & SxProps;
+    i: JSX.IntrinsicElements['i'] & SxProps;
+    a: JSX.IntrinsicElements['a'] & SxProps;
+    h1: JSX.IntrinsicElements['h1'] & SxProps;
+    h2: JSX.IntrinsicElements['h2'] & SxProps;
+    h3: JSX.IntrinsicElements['h3'] & SxProps;
+    h4: JSX.IntrinsicElements['h4'] & SxProps;
+    h5: JSX.IntrinsicElements['h5'] & SxProps;
+    h6: JSX.IntrinsicElements['h6'] & SxProps;
+    img: JSX.IntrinsicElements['img'] & SxProps;
+    pre: JSX.IntrinsicElements['pre'] & SxProps;
+    code: JSX.IntrinsicElements['code'] & SxProps;
+    ol: JSX.IntrinsicElements['ol'] & SxProps;
+    ul: JSX.IntrinsicElements['ul'] & SxProps;
+    li: JSX.IntrinsicElements['li'] & SxProps;
+    blockquote: JSX.IntrinsicElements['blockquote'] & SxProps;
+    hr: JSX.IntrinsicElements['hr'] & SxProps;
+    table: JSX.IntrinsicElements['table'] & SxProps;
+    tr: JSX.IntrinsicElements['tr'] & SxProps;
+    th: JSX.IntrinsicElements['th'] & SxProps;
+    td: JSX.IntrinsicElements['td'] & SxProps;
+    em: JSX.IntrinsicElements['em'] & SxProps;
+    strong: JSX.IntrinsicElements['strong'] & SxProps;
+    div: JSX.IntrinsicElements['div'] & SxProps;
+    delete: JSX.IntrinsicElements['div'] & SxProps;
+    inlineCode: JSX.IntrinsicElements['div'] & SxProps;
+    thematicBreak: JSX.IntrinsicElements['div'] & SxProps;
+    root: JSX.IntrinsicElements['div'] & SxProps;
+}
 
-export const Styled: Record<StyledTags, SxComponent> & SxComponent;
+export type StyledTags = keyof IntrinsicSxElements;
+
+export const Styled: {
+    [P in keyof IntrinsicSxElements]: SxComponent<IntrinsicSxElements[P]>;
+} &
+    SxComponent;
 
 interface ThemeUIContext {
     theme: Theme;
-    components: Record<StyledTags, SxComponent>;
+    components: { [P in keyof IntrinsicSxElements]: SxComponent<IntrinsicSxElements[P]> };
 }
 
 export const Context: React.Context<ThemeUIContext>;
@@ -204,8 +209,11 @@ export function useThemeUI(): ThemeUIContext;
  * @param initialMode - the default color mode to use
  */
 export function useColorMode<Modes extends string>(
-    initialMode?: Modes
+    initialMode?: Modes,
 ): [Modes, React.Dispatch<React.SetStateAction<Modes>>];
+
+export const InitializeColorMode: React.ComponentType;
+export const ColorMode: React.ComponentType;
 
 declare module 'react' {
     // tslint:disable-next-line: no-empty-interface

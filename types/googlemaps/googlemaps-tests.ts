@@ -720,7 +720,7 @@ service.findPlaceFromQuery(
         fields: ['name'],
     },
     (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.ERROR) {
+        if (status !== google.maps.places.PlacesServiceStatus.OK) {
             return;
         }
 
@@ -734,7 +734,7 @@ service.findPlaceFromPhoneNumber(
         fields: ['name'],
     },
     (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.ERROR) {
+        if (status !== google.maps.places.PlacesServiceStatus.OK) {
             return;
         }
 
@@ -793,3 +793,31 @@ const directionsWaypointLocationPlace: google.maps.DirectionsWaypoint = {
 const directionsWaypointStopover: google.maps.DirectionsWaypoint = {
     stopover: true,
 };
+
+/***** google.maps.DirectionsService *****/
+let directionsService = new google.maps.DirectionsService();
+
+directionsService.route({
+    avoidFerries: true,
+    avoidHighways: true,
+    avoidTolls: true,
+    destination: 'destination',
+    origin: 'origin',
+    provideRouteAlternatives: true,
+    transitOptions: {
+        arrivalTime: new Date(),
+        departureTime: new Date(),
+        modes: [
+            google.maps.TransitMode.BUS,
+            google.maps.TransitMode.RAIL
+        ],
+        routingPreference: google.maps.TransitRoutePreference.FEWER_TRANSFERS
+    },
+    travelMode: google.maps.TravelMode.TRANSIT,
+    unitSystem: google.maps.UnitSystem.IMPERIAL
+}, (result: google.maps.DirectionsResult, status: google.maps.DirectionsStatus) => {
+    const routes = result.routes; // $ExpectType DirectionsRoute[]
+    const legs = routes[0].legs; // $ExpectType DirectionsLeg[]
+    const steps = legs[0].steps; // $ExpectType DirectionsStep[]
+    steps[0].steps; // $ExpectType BaseDirectionsStep[]
+});

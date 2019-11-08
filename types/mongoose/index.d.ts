@@ -28,8 +28,13 @@
 //                 Richard Davison <https://github.com/richarddd>
 //                 Brian Chen <https://github.com/ToucheSir>
 //                 Boris Figovsky <https://github.com/borfig>
+//                 Simon Driscoll <https://github.com/dinodeSimon>
+//                 Anton Kenikh <https://github.com/anthony-kenikh>
+//                 Chathu Vishwajith <https://github.com/iamchathu>
+//                 Tom Yam <https://github.com/tomyam1>
+//                 Thomas Pischulski <https://github.com/nephix>
 // Definitions: https://github.com/DefinitelyTyped/DefinitelyTyped
-// TypeScript Version: 2.8
+// TypeScript Version: 3.0
 
 /// <reference types="mongodb" />
 /// <reference types="node" />
@@ -69,16 +74,6 @@ declare module "mongoose" {
   import mongoose = require('mongoose');
 
   /**
-   * Allows for nested objects and arrays to be partial
-   */
-  export type DeepPartial<T> = {
-    [P in keyof T]?:
-    T[P] extends (infer U)[] ? DeepPartial<U>[] :
-    T[P] extends object ? DeepPartial<T[P]> :
-    T[P];
-  };
-
-  /**
    * Gets and optionally overwrites the function used to pluralize collection names
    * @param fn function to use for pluralization of collection names
    * @returns the current function used to pluralize collection names (defaults to the `mongoose-legacy-pluralize` module's function)
@@ -104,7 +99,7 @@ declare module "mongoose" {
   export var SchemaTypes: typeof Schema.Types;
 
   /** Expose connection states for user-land */
-  export var STATES: ConnectionStates;
+  export var STATES: typeof ConnectionStates;
   /** The default connection of the mongoose module. */
   export var connection: Connection;
   /** An array containing all connections associated with this Mongoose instance. */
@@ -294,7 +289,7 @@ declare module "mongoose" {
     modelNames(): string[];
 
     /** A hash of the global options that are associated with this connection */
-    config: any;
+      config: Pick<ConnectionOptions, 'autoIndex' | 'autoCreate' | 'useCreateIndex' | 'useFindAndModify' | 'bufferCommands'>;
 
     /** The mongodb.Db instance, set when the connection is opened */
     db: mongodb.Db;
@@ -316,7 +311,7 @@ declare module "mongoose" {
     readyState: number;
 
     /** mapping of ready states */
-    states: ConnectionStates;
+    states: typeof ConnectionStates;
   }
 
   /**
@@ -345,6 +340,11 @@ declare module "mongoose" {
       autoIndex?: boolean;
     };
     autoIndex?: boolean;
+
+    /** Before Mongoose builds indexes, it calls Model.createCollection()
+     * to create the underlying collection in MongoDB if autoCreate
+     * is set to true.(default: false) */
+    autoCreate?: boolean;
 
     /** Specify a journal write concern (default: false). */
     journal?: boolean;
@@ -413,7 +413,7 @@ declare module "mongoose" {
     startSession(options?: mongodb.SessionOptions, cb?: (err: any, session: mongodb.ClientSession) => void): Promise<mongodb.ClientSession>;
 
     /** Expose the possible connection states. */
-    static STATES: ConnectionStates;
+    static STATES: typeof ConnectionStates;
   }
 
   export enum ConnectionStates {
@@ -621,7 +621,7 @@ declare module "mongoose" {
    * QueryCursor can only be accessed by query#cursor(), we only
    *   expose its interface to enable type-checking.
    */
-  interface QueryCursor<T extends Document> extends stream.Readable {
+  class QueryCursor<T extends Document> extends stream.Readable {
     /**
      * A QueryCursor is a concurrency primitive for processing query results
      * one document at a time. A QueryCursor fulfills the Node.js streams3 API,
@@ -635,7 +635,7 @@ declare module "mongoose" {
      * @event data Emitted when the stream is flowing and the next doc is ready
      * @event end Emitted when the stream is exhausted
      */
-    constructor(query: Query<T>, options: any): QueryCursor<T>;
+    constructor(query: Query<T>, options: any);
 
     /** Marks this cursor as closed. Will stop streaming and subsequent calls to next() will error. */
     close(callback?: (error: any, result: any) => void): Promise<any>;
@@ -778,6 +778,21 @@ declare module "mongoose" {
      * @param method name of the method to hook
      * @param fn callback
      */
+    post<T extends Document>(method: 'insertMany', fn: (
+      this: Model<Document>,
+      error: mongodb.MongoError, docs: T[], next: (err?: NativeError) => void
+    ) => void): this;
+
+    post<T extends Document>(method: 'insertMany', fn: (
+      this: Model<Document>,
+      docs: T[], next: (err?: NativeError) => void
+    ) => void): this;
+
+    post<T extends Document>(method: 'insertMany', fn: (
+      this: Model<Document>,
+      docs: T[], next: (err?: NativeError) => Promise<any>
+    ) => void): this;
+
     post<T extends Document>(method: string | RegExp, fn: (
       doc: T, next: (err?: NativeError) => void
     ) => void): this;
@@ -818,7 +833,7 @@ declare module "mongoose" {
       errorCb?: HookErrorCallback
     ): this;
     pre<T extends Document | Model<Document> | Query<any> | Aggregate<any>>(
-      method: string,
+      method: string | RegExp,
       fn: HookSyncCallback<T>,
       errorCb?: HookErrorCallback
     ): this;
@@ -1259,8 +1274,14 @@ declare module "mongoose" {
     /**
      * Returns the value of a path.
      * @param type optionally specify a type for on-the-fly attributes
+     * @param options
+     * @param options.virtuals apply virtuals before getting this path
+     * @param options.getters if false, skip applying getters and just get the raw value
      */
-    get(path: string, type?: any): any;
+    get(path: string, type?: any, options?: {
+      virtuals?: boolean;
+      getters?: boolean;
+    }): any;
 
     /**
      * Initializes the document without setters or marking anything modified.
@@ -1397,7 +1418,7 @@ declare module "mongoose" {
      * @param pathsToValidate only validate the given paths
      * @returns ValidationError if there are errors during validation, or undefined if there is no error.
      */
-    validateSync(pathsToValidate?: string | string[]): Error.ValidationError;
+    validateSync(pathsToValidate?: string | string[]): Error.ValidationError | undefined;
 
     /** Hash containing current validation errors. */
     errors: any;
@@ -1407,6 +1428,8 @@ declare module "mongoose" {
     isNew: boolean;
     /** The documents schema. */
     schema: Schema;
+    /** Empty object that you can use for storing properties on the document */
+    $locals: { [k: string]: any };
   }
 
   interface MongooseDocumentOptionals {
@@ -1490,7 +1513,7 @@ declare module "mongoose" {
 
       /**
        * Return the index of obj or -1 if not found.
-       * @param obj he item to look for
+       * @param obj the item to look for
        */
       indexOf(obj: any): number;
 
@@ -1977,7 +2000,7 @@ declare module "mongoose" {
      * getters/setters or other Mongoose magic applied.
      * @param {Boolean|Object} bool defaults to true
      */
-    lean(bool?: boolean | object): Query<any> & QueryHelpers;
+    lean<T>(bool?: boolean | object): Query<T> & QueryHelpers;
 
     /** Specifies the maximum number of documents the query will return. Cannot be used with distinct() */
     limit(val: number): this;
@@ -2228,6 +2251,8 @@ declare module "mongoose" {
     within(val?: any): this;
     within(coordinate: number[], ...coordinatePairs: number[][]): this;
 
+    wtimeout(ms?: number): this;
+
     /** Flag to opt out of using $geoWithin. */
     static use$geoWithin: boolean;
   }
@@ -2279,6 +2304,10 @@ declare module "mongoose" {
       multipleCastError?: boolean;
     /** Field selection. Equivalent to .select(fields).findOneAndUpdate() */
     fields?: any | string;
+    /** If true, delete any properties whose value is undefined when casting an update. In other words,
+    if this is set, Mongoose will delete baz from the update in Model.updateOne({}, { foo: 'bar', baz: undefined })
+    before sending the update to the server.**/
+    omitUndefined?: boolean;
   }
 
   interface QueryUpdateOptions extends ModelUpdateOptions {
@@ -2387,15 +2416,17 @@ declare module "mongoose" {
          * Adds a discriminator type.
          * @param name discriminator model name
          * @param schema discriminator model schema
+         * @param value the string stored in the `discriminatorKey` property
          */
-        discriminator<U extends Document>(name: string, schema: Schema): Model<U>;
+        discriminator<U extends Document>(name: string, schema: Schema, value?: string): Model<U>;
 
         /**
          * Adds a discriminator type.
          * @param name discriminator model name
          * @param schema discriminator model schema
+         * @param value the string stored in the `discriminatorKey` property
          */
-        discriminator<U extends Document, M extends Model<U>>(name: string, schema: Schema): M;
+        discriminator<U extends Document, M extends Model<U>>(name: string, schema: Schema, value?: string): M;
 
       }
 
@@ -2859,7 +2890,7 @@ declare module "mongoose" {
      *   Model#ensureIndexes. If an error occurred it is passed with the event.
      *   The fields, options, and index name are also passed.
      */
-    new(doc?: DeepPartial<T>): T;
+    new(doc?: any): T;
 
     /**
      * Requires a replica set running MongoDB >= 3.6.0. Watches the underlying collection for changes using MongoDB change streams.
@@ -2880,10 +2911,13 @@ declare module "mongoose" {
      * Mongoose will perform casting on all operations you provide.
      * This function does not trigger any middleware, not save() nor update(). If you need to trigger save() middleware for every document use create() instead.
      * @param writes Operations
+     * @param options Optional settings. See https://mongoosejs.com/docs/api/model.html#model_Model.bulkWrite
      * @param cb callback
      * @return `BulkWriteOpResult` if the operation succeeds
      */
     bulkWrite(writes: any[], cb?: (err: any, res: mongodb.BulkWriteOpResultObject) => void): Promise<mongodb.BulkWriteOpResultObject>;
+    bulkWrite(writes: any[], options?: mongodb.CollectionBulkWriteOptions): Promise<mongodb.BulkWriteOpResultObject>;
+    bulkWrite(writes: any[], options: mongodb.CollectionBulkWriteOptions, cb: (err: any, res: mongodb.BulkWriteOpResultObject) => void): void;
 
     /**
      * Finds a single document by its _id field. findById(id) is almost*
@@ -2992,8 +3026,8 @@ declare module "mongoose" {
      * @param callback optional callback
      * @return Returns `undefined` if callback is specified, returns a promise if no callback.
      */
-    syncIndexes(options: object, callback?: (err: any) => void): void;
-    syncIndexes(options: object): Promise<void>;
+    syncIndexes(options: object | null | undefined, callback: (err: any) => void): void;
+    syncIndexes(options?: object | null): Promise<void>;
 
     /**
      * Lists the indexes currently defined in MongoDB. This may or may not be
@@ -3255,9 +3289,9 @@ declare module "mongoose" {
       callback?: (err: any, res: T) => void): Promise<T>;
 
     /** Removes documents from the collection. */
-    remove(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result']> & QueryHelpers;
-    deleteOne(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result']> & QueryHelpers;
-    deleteMany(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result']> & QueryHelpers;
+    remove(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result'] & { deletedCount?: number }> & QueryHelpers;
+    deleteOne(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result'] & { deletedCount?: number }> & QueryHelpers;
+    deleteMany(conditions: any, callback?: (err: any) => void): Query<mongodb.DeleteWriteOpResultObject['result'] & { deletedCount?: number }> & QueryHelpers;
 
     /**
      * Same as update(), except MongoDB replace the existing document with the given document (no atomic operators like $set).
